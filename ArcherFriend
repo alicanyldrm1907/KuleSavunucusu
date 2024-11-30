@@ -1,0 +1,90 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.AI;
+
+public class ArcherFriend : MonoBehaviour
+{
+    [SerializeField] private LayerMask enemy;
+    [SerializeField] private Vector3 firstPosition;
+    [SerializeField] private GameObject arrow;
+    private NavMeshAgent navMesh;
+    Animator animator;
+    Collider enemyy;
+    byte x = 0;
+
+    void Start()
+    {
+        firstPosition = new Vector3(UnityEngine.Random.Range(GameObject.Find("Castle").transform.position.x - 20, GameObject.Find("Castle").transform.position.x + 20), transform.position.y, GameObject.Find("Castle").transform.position.z + 35);
+        navMesh = GetComponent<NavMeshAgent>();
+        animator = GetComponent<Animator>();
+        navMesh.SetDestination(firstPosition);
+        navMesh.stoppingDistance = 0;
+        StartCoroutine(Died());
+        StartCoroutine(Velocity());
+    }
+
+    void Update()
+    {
+        #region FindEnemy
+        List<Collider> enemies = new List<Collider>(Physics.OverlapSphere(transform.position, 100, enemy));
+        enemies.Sort((a, b) => { return Vector3.Distance(transform.position, a.transform.position).CompareTo(Vector3.Distance(transform.position, b.transform.position)); });
+        #endregion
+
+        #region AttackEnemy
+        if (enemies.Count > 0)
+        {
+            enemyy = enemies[0];
+            if (navMesh.enabled) { navMesh.SetDestination(enemies[0].transform.position); navMesh.stoppingDistance = 70; }
+            animator.SetBool("IsNear", Vector3.Distance(transform.position, enemies[0].transform.position) <= 70);
+            transform.LookAt(new Vector3(enemies[0].transform.position.x, transform.position.y, enemies[0].transform.position.z));
+            if (animator.GetBool("IsNear"))
+            {
+                if (x == 0) { x = 1; StartCoroutine(Attack(enemies[0])); }
+            }
+            else { x = 0; StopCoroutine(Attack(enemies[0])); }
+        }
+        else
+        {
+            if (navMesh.enabled) { navMesh.SetDestination(firstPosition); navMesh.stoppingDistance = 0; }
+            animator.SetBool("IsNear", false);
+            enemyy = null;
+            x = 0;
+        }
+        #endregion
+    }
+
+    IEnumerator Velocity()
+    {
+        while (GetComponent<GetDamage>().health > 0)
+        {
+            yield return new WaitUntil(() => navMesh.velocity.magnitude > 0.01f && !animator.GetBool("IsNear"));
+            animator.SetFloat("Velocity", navMesh.velocity.magnitude);
+            yield return new WaitUntil(() => navMesh.velocity.magnitude < 0.01f && !animator.GetBool("IsNear"));
+            animator.SetFloat("Velocity", navMesh.velocity.magnitude);
+        }
+    }
+
+    IEnumerator Attack(Collider enemy)
+    {
+        while (animator.GetBool("IsNear") && enemy != null)
+        {
+            yield return new WaitUntil(() => animator.GetCurrentAnimatorStateInfo(0).normalizedTime % 1 >= 0.5 && GetComponent<GetDamage>().health > 0);
+            GameObject arroww = Instantiate(arrow, transform.GetChild(0).position, Quaternion.Euler(-30, transform.rotation.eulerAngles.y, 0));
+            arroww.GetComponent<Rigidbody>().AddForce((transform.forward + new Vector3(0,0.2f,0))* 100);
+            yield return new WaitUntil(() => animator.GetCurrentAnimatorStateInfo(0).normalizedTime % 1 < 0.5 && GetComponent<GetDamage>().health > 0);
+        }
+        x = 0;
+    }
+
+    IEnumerator Died()
+    {
+        yield return new WaitUntil(() => GetComponent<GetDamage>().health <= 0);
+        if (enemyy != null) StopCoroutine(Attack(enemyy));
+        animator.SetInteger("Heal", 0);
+        navMesh.enabled = false;
+        GetComponent<CapsuleCollider>().enabled = false;
+        Destroy(gameObject, 3);
+    }
+}
