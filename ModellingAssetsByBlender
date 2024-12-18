@@ -1,7 +1,8 @@
 Castle
 basicCharacter
 CharacterSculpt
-Archer
+Archer (Animations: Hit, Idle, Run, Died)
+Bomber (Animations: Hit, Idle, Run, Died)
 Soldier (M416) (Animations: Hit, Idle, Run, Died)
 Soldier2 (AK-47) (Animations: Hit, Idle, Run, Died)
 Fighter
