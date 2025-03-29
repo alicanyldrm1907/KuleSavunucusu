@@ -1,0 +1,251 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+using TMPro;
+using Cinemachine;
+
+public class GameManager : MonoBehaviour
+{
+    public LayerMask enemy, friend;
+    [SerializeField] private Transform[] enemyLocations, friends, enemies;
+    [SerializeField] private Transform friendLocation, ax;
+    [SerializeField] private TextMeshProUGUI coinText, wave, comeWave, bestWave, winDiamond, axText, rageText, poisonText, extraFighterText;
+    [SerializeField] private GameObject magic, leftButton, rightButton, pause, buttons, GameOver;
+    [SerializeField] private CinemachineVirtualCamera fixedCamera;
+    [SerializeField] private CinemachineFreeLook freeCamera;
+    private int waveNumber = 1,difficultNumber;
+
+    void Start()
+    {
+        switch(MenuManager.difficulty)
+        {
+            case "Easy": StartCoroutine(WaveEasy());
+                difficultNumber = 1;
+                break;
+            case "Medium": StartCoroutine(WaveMedium());
+                difficultNumber = 2;
+                break;
+            case "Hard": StartCoroutine(WaveHard());
+                difficultNumber = 3;
+                break;
+            case "Crazy": StartCoroutine(WaveCrazy());
+                difficultNumber = 4;
+                break;
+        }
+
+        StartCoroutine(GameOverr());
+        coinText.text = (PlayerPrefs.GetInt("LevelNumber") * 500).ToString();
+        axText.text = PlayerPrefs.GetInt("axText") < 0 ? "0" : PlayerPrefs.GetInt("axText").ToString();
+        rageText.text = PlayerPrefs.GetInt("rageText") < 0 ? "0" : PlayerPrefs.GetInt("poisonText").ToString();
+        poisonText.text = PlayerPrefs.GetInt("poisonText") < 0 ? "0" : PlayerPrefs.GetInt("rageText").ToString();
+        extraFighterText.text = PlayerPrefs.GetInt("extraFighterText") < 0 ? "0" : PlayerPrefs.GetInt("extraFighterText").ToString();
+    }
+    public void Pause()
+    {
+        buttons.SetActive(false);
+        pause.SetActive(true);
+        Time.timeScale = 0;
+    }
+    public void Resume()
+    {
+        buttons.SetActive(true);
+        pause.SetActive(false);
+        Time.timeScale = 1;
+    }
+    public void Replay()
+    {
+        Time.timeScale = 1;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+    public void Menu()
+    {
+        Time.timeScale = 1;
+        SceneManager.LoadScene("Menu");
+    }
+    public void ChangeCamera()
+    {
+        fixedCamera.Priority = fixedCamera.Priority == 11 ? 10 : 11;
+        freeCamera.Priority = freeCamera.Priority == 11 ? 10 : 11;
+    }
+    public void CallFighter(Button button)
+    {
+        if (int.Parse(GameObject.Find(button.name+"Cost").GetComponent<TextMeshProUGUI>().text) <= int.Parse(coinText.text))
+        {
+            coinText.text = (int.Parse(coinText.text) - int.Parse(GameObject.Find(button.name + "Cost").GetComponent<TextMeshProUGUI>().text)).ToString();
+            Instantiate(friends.ToList<Transform>().Find(match => match.name.Contains(button.name)), friendLocation.position, Quaternion.identity);
+        }
+    }
+    public void CallAx(Button axB) 
+    {
+        if (int.Parse(axText.text) > 0)
+        {
+            for (int i = 0; i < 8; i++) Instantiate(ax, ax.transform.position + Vector3.right * 10 * i, Quaternion.identity);
+            PlayerPrefs.SetInt("axText", PlayerPrefs.GetInt("axText") - 1);
+            axText.text = PlayerPrefs.GetInt("axText").ToString();
+            if (PlayerPrefs.GetInt("axText") == 0) axB.interactable = false;
+        }
+        else axB.interactable = false;
+    }
+    public void ExtraFigther(Button ex) 
+    { 
+        if (int.Parse(extraFighterText.text) > 0)
+        {
+            for (int i = 0; i < 5; i++) Instantiate(friends[Random.Range(0, friends.Length)], friendLocation.position, Quaternion.identity);
+            PlayerPrefs.SetInt("extraFighterText", PlayerPrefs.GetInt("extraFighterText") - 1);
+            extraFighterText.text = PlayerPrefs.GetInt("extraFighterText").ToString();
+            if (PlayerPrefs.GetInt("extraFighterText") == 0) ex.interactable = false;
+        }
+        else ex.interactable = false;
+    }
+    public void RightButton() 
+    {
+        magic.SetActive(true);
+        leftButton.SetActive(true);
+        rightButton.SetActive(false);
+    }
+    public void LeftButton()
+    {
+        magic.SetActive(false);
+        leftButton.SetActive(false);
+        rightButton.SetActive(true);
+    }
+    public void CallMagic(GameObject magic) 
+    {
+        switch (magic.name)
+        {
+            case "rage":
+                {
+                    if (int.Parse(rageText.text) > 0)
+                    {
+                        Instantiate(magic, new Vector3(magic.transform.position.x, magic.transform.position.y, GameObject.Find("Castle").transform.position.z + 58.9f), Quaternion.Euler(90,0,0));
+                        PlayerPrefs.SetInt("rageText", PlayerPrefs.GetInt("rageText") - 1);
+                        rageText.text = PlayerPrefs.GetInt("rageText").ToString();
+                        if (PlayerPrefs.GetInt("rageText") == 0) GameObject.Find("rageButton").GetComponent<Button>().interactable = false;
+                    }
+                }
+                break;
+            case "poison":
+                {
+                    if (int.Parse(poisonText.text) > 0)
+                    {
+                        Instantiate(magic, new Vector3(magic.transform.position.x, magic.transform.position.y, GameObject.Find("Castle").transform.position.z + 125), Quaternion.Euler(90, 0, 0));
+                        PlayerPrefs.SetInt("poisonText", PlayerPrefs.GetInt("poisonText") - 1);
+                        poisonText.text = PlayerPrefs.GetInt("poisonText").ToString();
+                        if (PlayerPrefs.GetInt("poisonText") == 0) GameObject.Find("poisonButton").GetComponent<Button>().interactable = false;
+                    }
+                }
+                break;
+        }
+    }
+    IEnumerator GameOverr()
+    {
+        yield return new WaitUntil(() => GameObject.Find("Castle").GetComponent<GetDamage>().health <= 0);
+        yield return new WaitForSeconds(1);
+        PlayerPrefs.SetInt("MyDiamond", PlayerPrefs.GetInt("MyDiamond") + 50 * difficultNumber * waveNumber);
+        winDiamond.text = (50 * difficultNumber * waveNumber).ToString();
+        buttons.SetActive(false);
+        GameOver.SetActive(true);
+        comeWave.text = "Gelinen Dalga : Dalga " + waveNumber;
+        if (PlayerPrefs.GetInt("WaveEasy") < waveNumber) PlayerPrefs.SetInt("WaveEasy", waveNumber);
+        bestWave.text = "En iyi Dalga : Dalga " + PlayerPrefs.GetInt("WaveEasy");
+    }
+    IEnumerator WaveEasy()
+    {
+        while (GameObject.Find("Castle").GetComponent<GetDamage>().health > 0)
+        {
+            wave.gameObject.SetActive(true);
+            wave.text = "Dalga " + waveNumber;
+            for (int i = 0; i < waveNumber; i++)
+            {
+                if (i % 2 == 0) Instantiate(enemies[2], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 4 == 0 && i > 0) Instantiate(enemies[0], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 5 == 0 && i > 0) Instantiate(enemies[3], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 7 == 0 && i > 0) Instantiate(enemies[1], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 10 == 0 && i > 0) Instantiate(enemies[4], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 11 == 0 && i > 0) Instantiate(enemies[5], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 12 == 0 && i > 0) Instantiate(enemies[6], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+            }
+            yield return new WaitForSeconds(1);
+            wave.gameObject.SetActive(false);
+            waveNumber++;
+            yield return new WaitUntil(() => GameObject.FindGameObjectsWithTag("Enemy").Length == 0);
+            yield return new WaitForSeconds(1);
+            coinText.text = (int.Parse(coinText.text) + 250).ToString();
+        }
+    }
+    IEnumerator WaveMedium()
+    {
+        while (GameObject.Find("Castle").GetComponent<GetDamage>().health > 0)
+        {
+            wave.gameObject.SetActive(true);
+            wave.text = "Dalga " + waveNumber;
+            for (int i = 0; i < waveNumber; i++)
+            {
+                if (i % 2 == 0) Instantiate(enemies[2], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 4 == 0 && i > 0) Instantiate(enemies[0], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 5 == 0 && i > 0) Instantiate(enemies[3], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 6 == 0 && i > 0) Instantiate(enemies[1], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 9 == 0 && i > 0) Instantiate(enemies[4], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 11 == 0 && i > 0) Instantiate(enemies[5], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 12 == 0 && i > 0) Instantiate(enemies[6], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+            }
+            yield return new WaitForSeconds(1);
+            wave.gameObject.SetActive(false);
+            waveNumber++;
+            yield return new WaitUntil(() => GameObject.FindGameObjectsWithTag("Enemy").Length == 0);
+            yield return new WaitForSeconds(1);
+            coinText.text = (int.Parse(coinText.text) + 500).ToString();
+        }
+    }
+    IEnumerator WaveHard()
+    {
+        while (GameObject.Find("Castle").GetComponent<GetDamage>().health > 0)
+        {
+            wave.gameObject.SetActive(true);
+            wave.text = "Dalga " + waveNumber;
+            for (int i = 0; i < waveNumber; i++)
+            {
+                if (i % 2 == 0) Instantiate(enemies[2], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 3 == 0 && i > 0) Instantiate(enemies[0], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 5 == 0 && i > 0) Instantiate(enemies[3], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 6 == 0 && i > 0) Instantiate(enemies[1], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 7 == 0 && i > 0) Instantiate(enemies[4], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 9 == 0 && i > 0) Instantiate(enemies[5], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 10 == 0 && i > 0) Instantiate(enemies[6], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+            }
+            yield return new WaitForSeconds(1);
+            wave.gameObject.SetActive(false);
+            waveNumber++;
+            yield return new WaitUntil(() => GameObject.FindGameObjectsWithTag("Enemy").Length == 0);
+            yield return new WaitForSeconds(1);
+            coinText.text = (int.Parse(coinText.text) + 750).ToString();
+        }
+    }
+    IEnumerator WaveCrazy()
+    {
+        while (GameObject.Find("Castle").GetComponent<GetDamage>().health > 0)
+        {
+            wave.gameObject.SetActive(true);
+            wave.text = "Dalga " + waveNumber;
+            for (int i = 0; i < waveNumber; i++)
+            {
+                Instantiate(enemies[2], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 3 == 0 && i > 0) Instantiate(enemies[0], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 4 == 0 && i > 0) Instantiate(enemies[3], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 6 == 0 && i > 0) Instantiate(enemies[1], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 7 == 0 && i > 0) Instantiate(enemies[4], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 9 == 0 && i > 0) Instantiate(enemies[5], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+                if (i % 10 == 0 && i > 0) Instantiate(enemies[6], enemyLocations[Random.Range(0, enemyLocations.Length)].position, Quaternion.identity);
+            }
+            yield return new WaitForSeconds(1);
+            wave.gameObject.SetActive(false);
+            waveNumber++;
+            yield return new WaitUntil(() => GameObject.FindGameObjectsWithTag("Enemy").Length == 0);
+            yield return new WaitForSeconds(1);
+            coinText.text = (int.Parse(coinText.text) + 1000).ToString();
+        }
+    }
+}
